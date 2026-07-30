@@ -54,9 +54,15 @@ save_template:
   name: Save template
   fields:
     name: {required: true, selector: {text: {}}}
+    recipients: {selector: {text: {multiple: true, type: email}}}
+    cc: {selector: {text: {multiple: true, type: email}}}
+    bcc: {selector: {text: {multiple: true, type: email}}}
     subject: {required: true, selector: {text: {}}}
     text: {selector: {text: {multiline: true}}}
     html: {selector: {text: {multiline: true}}}
+    attachment_ids:
+      description: Managed attachment IDs retained by the template.
+      selector: {text: {multiple: true}}
 remove_template:
   name: Remove template
   fields:
@@ -78,6 +84,8 @@ save_schedule:
     subject: {selector: {text: {}}}
     text: {selector: {text: {multiline: true}}}
     html: {selector: {text: {multiline: true}}}
+    recipients: {selector: {text: {multiple: true, type: email}}}
+    attachment_ids: {selector: {text: {multiple: true}}}
 remove_schedule:
   name: Remove schedule
   fields:

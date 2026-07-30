@@ -47,7 +47,7 @@ async def async_unload_entry(
         if not other_loaded_entries:
             async_unregister_services(hass)
             async_unregister_panel(hass)
-    return unload_ok
+    return bool(unload_ok)
 
 
 async def async_migrate_entry(

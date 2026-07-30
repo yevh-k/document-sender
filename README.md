@@ -13,7 +13,8 @@ Document Sender is a Home Assistant custom integration for reliable SMTP email d
 - SQLite audit log and durable attachment/template/schedule storage
 - English, Polish, and Ukrainian UI translations
 - Native **Document Sender** sidebar panel for message composition, managed
-  uploads, camera snapshots, saved drafts, and masked delivery history
+  uploads, camera snapshots, reusable templates, monthly automations, and
+  masked delivery history
 
 ## Management panel
 
@@ -22,6 +23,20 @@ sidebar. The panel is a native Lit module, not an iframe. It communicates over
 authenticated WebSocket commands and never receives SMTP credentials. Browser
 uploads are copied into the private integration attachment directory, so the
 browser cannot supply arbitrary filesystem paths.
+
+The panel has five sections:
+
+- **Compose** sends one-off messages and stores optional per-account defaults.
+- **Templates** stores recipients, subject, plain text, optional HTML, and
+  managed attachment IDs for each SMTP account.
+- **Automations** schedules a selected template for a day and local time every
+  month, shows the previous and next run, and provides **Run now**.
+- **Attachments** uploads private managed files or imports camera snapshots.
+- **History** shows privacy-masked delivery results.
+
+Template attachments are references to managed files. Sending never deletes,
+recreates, or alters those references, so the same files remain attached every
+month until an administrator changes the template or deletes a managed file.
 
 ## Installation
 
@@ -77,7 +92,20 @@ data:
 response_variable: template_result
 ```
 
-Templates use Home Assistant's normal Jinja environment, so states, helpers, and functions such as `now()` are available at send time.
+Templates use Home Assistant's normal Jinja environment, so states, helpers,
+and functions such as `now()` are available at send time. The integration also
+supplies these locale-aware values on every delivery:
+
+| Variable | Meaning |
+| --- | --- |
+| `{{ month_name }}` / `{{ month_name_genitive }}` | Current month in English, Polish, or Ukrainian. |
+| `{{ previous_month_name }}` / `{{ previous_month_name_genitive }}` | Previous month, including the January-to-December boundary. |
+| `{{ year }}` | Current local year. |
+| `{{ previous_month_year }}` | Year belonging to the previous month. |
+| `{{ date }}` | Current Home Assistant local date in `YYYY-MM-DD` form. |
+
+The language comes from Home Assistant and the date comes from its configured
+timezone. Subject and bodies are rendered again before every send.
 
 ```yaml
 service: document_sender.send
@@ -102,6 +130,12 @@ or attachments in `document_sender.send`.
 ### Create schedules
 
 All schedules run in Home Assistant's configured local time zone. `weekday` uses ISO-style zero-based numbers: `0` Monday through `6` Sunday. Monthly schedules requested for the 29th–31st run on the last day in shorter months. A one-time schedule is disabled after its delivery attempt.
+
+Monthly automations created in the panel are stored with their template ID and
+restored after Home Assistant restarts. Each scheduled occurrence is persisted
+before SMTP delivery begins, preventing the same month from being sent twice
+after a restart. **Run now** records its own result without consuming the next
+scheduled occurrence.
 
 ```yaml
 # Every weekday at 08:30

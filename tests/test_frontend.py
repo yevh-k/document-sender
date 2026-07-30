@@ -23,4 +23,9 @@ def test_panel_uses_local_lit_bundle() -> None:
     assert 'const PANEL_ELEMENT = "ha-panel-document-sender-panel"' in output
     assert "customElements.define(PANEL_ELEMENT, DocumentSenderPanel)" in output
     assert 'const LEGACY_PANEL_ELEMENT = "document-sender-panel"' in output
+    assert '"document_sender/templates/save"' in output
+    assert '"document_sender/automations/run"' in output
+    assert '"previous_month_name_genitive"' in output
+    assert 'automations: "Автоматизації"' in output
+    assert 'automations: "Automatyzacje"' in output
     assert lit_bundle.stat().st_size > 10_000
