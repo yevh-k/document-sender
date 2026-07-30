@@ -64,6 +64,10 @@ def async_register_panel(hass: HomeAssistant) -> None:
     """Show the panel once the first config entry has loaded."""
     if hass.data.get(_PANEL_REGISTERED):
         return
+    # Built-in panel registration exposes the route; custom integration modules
+    # must also be added to the frontend module registry so the browser defines
+    # the ``document-sender-panel`` custom element.
+    frontend.add_extra_js_url(hass, PANEL_STATIC_URL)
     frontend.async_register_built_in_panel(
         hass,
         PANEL_COMPONENT,
@@ -81,6 +85,7 @@ def async_unregister_panel(hass: HomeAssistant) -> None:
     if not hass.data.pop(_PANEL_REGISTERED, False):
         return
     frontend.async_remove_panel(hass, PANEL_URL_PATH, warn_if_unknown=False)
+    frontend.remove_extra_js_url(hass, PANEL_STATIC_URL)
 
 
 def _coordinator(
