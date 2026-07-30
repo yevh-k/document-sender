@@ -66,6 +66,29 @@ class AttachmentManager:
         await self._store.async_save(self._data)
         return metadata
 
+    async def async_add_bytes(
+        self, name: str, content_type: str, content: bytes
+    ) -> AttachmentMetadata:
+        """Store a browser-uploaded attachment in private managed storage."""
+        display_name = Path(name).name
+        if not display_name or display_name != name or len(display_name) > 255:
+            raise ValueError("Attachment filename is invalid")
+        if not content_type or "/" not in content_type or len(content_type) > 128:
+            raise ValueError("Attachment MIME type is invalid")
+        attachment_id = uuid4().hex
+        target = self._directory / f"{attachment_id}_{display_name}"
+        await self._hass.async_add_executor_job(_write_file, target, content)
+        metadata: AttachmentMetadata = {
+            "id": attachment_id,
+            "name": display_name,
+            "path": str(target),
+            "content_type": content_type.casefold(),
+            "created_at": datetime.now(UTC).isoformat(),
+        }
+        self._data[attachment_id] = metadata
+        await self._store.async_save(self._data)
+        return metadata
+
     async def async_remove(self, attachment_id: str) -> bool:
         """Remove an attachment and its managed file."""
         metadata = self._data.pop(attachment_id, None)
@@ -116,6 +139,12 @@ def _validated_source_path(source: str) -> Path:
 def _unlink_file(path: Path) -> None:
     """Delete a managed file if it exists."""
     path.unlink(missing_ok=True)
+
+
+def _write_file(target: Path, content: bytes) -> None:
+    """Write one upload atomically enough for private managed storage."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(content)
 
 
 def _content_type_for_name(name: str) -> str:

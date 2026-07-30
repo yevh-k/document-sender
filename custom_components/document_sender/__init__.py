@@ -7,6 +7,7 @@ from homeassistant.core import HomeAssistant
 
 from .const import CONF_SENDER, CONF_SENDER_EMAIL, CONF_SENDER_NAME, DOMAIN, PLATFORMS
 from .coordinator import DocumentSenderCoordinator
+from .panel import async_register_panel, async_setup_panel, async_unregister_panel
 from .services import async_register_services, async_unregister_services
 
 type DocumentSenderConfigEntry = ConfigEntry[DocumentSenderCoordinator]
@@ -15,6 +16,7 @@ type DocumentSenderConfigEntry = ConfigEntry[DocumentSenderCoordinator]
 async def async_setup(hass: HomeAssistant, config: dict[str, object]) -> bool:
     """Set up Document Sender service registration."""
     await async_register_services(hass)
+    await async_setup_panel(hass)
     return True
 
 
@@ -27,6 +29,7 @@ async def async_setup_entry(
     await coordinator.async_setup()
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    async_register_panel(hass)
     return True
 
 
@@ -43,6 +46,7 @@ async def async_unload_entry(
         )
         if not other_loaded_entries:
             async_unregister_services(hass)
+            async_unregister_panel(hass)
     return unload_ok
 
 
