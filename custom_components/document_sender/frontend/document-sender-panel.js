@@ -667,6 +667,16 @@ class DocumentSenderPanel extends LitElement {
   }
 }
 
-if (!customElements.get("document-sender-panel")) {
-  customElements.define("document-sender-panel", DocumentSenderPanel);
+const PANEL_ELEMENT = "ha-panel-document-sender-panel";
+const LEGACY_PANEL_ELEMENT = "document-sender-panel";
+
+if (!customElements.get(PANEL_ELEMENT)) {
+  customElements.define(PANEL_ELEMENT, DocumentSenderPanel);
+}
+
+if (!customElements.get(LEGACY_PANEL_ELEMENT)) {
+  customElements.define(
+    LEGACY_PANEL_ELEMENT,
+    class extends DocumentSenderPanel {},
+  );
 }

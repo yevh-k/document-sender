@@ -20,5 +20,7 @@ def test_panel_uses_local_lit_bundle() -> None:
     assert output == source
     assert 'from "./lit-core.min.js"' in output
     assert "window.LitElement" not in output
-    assert 'customElements.define("document-sender-panel"' in output
+    assert 'const PANEL_ELEMENT = "ha-panel-document-sender-panel"' in output
+    assert "customElements.define(PANEL_ELEMENT, DocumentSenderPanel)" in output
+    assert 'const LEGACY_PANEL_ELEMENT = "document-sender-panel"' in output
     assert lit_bundle.stat().st_size > 10_000
