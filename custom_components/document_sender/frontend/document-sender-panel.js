@@ -11,8 +11,9 @@ class DocumentSenderPanel extends LitElement {
   static styles = css`:host{display:block;padding:24px;max-width:1200px;margin:auto}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}ha-card{padding:16px}textarea{min-height:100px}input,textarea,select{width:100%;box-sizing:border-box;margin:5px 0;padding:8px}button{margin:4px}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.notice{padding:8px;color:var(--primary-text-color)}li{display:flex;gap:8px;align-items:center;justify-content:space-between}`;
   constructor(){super();this.entries=[];this.attachments=[];this.history=[];this.cameras=[];this.selected=[];this.draft={recipients:[],cc:[],bcc:[],subject:"",text:"",html:""};this.htmlEnabled=false;}
   get t(){return COPY[(this.hass?.language||"en").slice(0,2)]||COPY.en;}
-  async connectedCallback(){super.connectedCallback();await this.loadConfig();}
-  async ws(type, data={}){return this.hass.connection.sendMessagePromise({type,...data});}
+  connectedCallback(){super.connectedCallback();}
+  updated(changed){if(changed.has("hass")&&this.hass&&!this._loaded){this._loaded=true;this.loadConfig().catch(error=>{this.notice=error.message||String(error);this.requestUpdate();});}}
+  async ws(type, data={}){if(!this.hass?.connection)throw new Error("Home Assistant connection is not ready");return this.hass.connection.sendMessagePromise({type,...data});}
   async loadConfig(){const r=await this.ws("document_sender/config");this.entries=r.entries||[];this.entryId=this.entries[0]?.entry_id;await this.loadEntry();}
   async loadEntry(){if(!this.entryId)return;this.draft=await this.ws("document_sender/template/get",{entry_id:this.entryId})||this.draft;this.htmlEnabled=!!this.draft.html;[this.attachments,this.history,this.cameras]=await Promise.all([this.ws("document_sender/attachments/list",{entry_id:this.entryId}),this.ws("document_sender/history/list",{entry_id:this.entryId}),this.ws("document_sender/camera/list")]);this.requestUpdate();}
   value(key){return this.renderRoot.querySelector(`[data-key="${key}"]`)?.value||"";}
