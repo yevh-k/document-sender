@@ -1,0 +1,33 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Połącz Document Sender",
+        "description": "Wprowadź dane SMTP. Zostaną sprawdzone przed zapisaniem. Gmail używa smtp.gmail.com, portu 587 i hasła do aplikacji Google.",
+        "data": {"smtp_host": "Serwer SMTP", "smtp_port": "Port SMTP", "username": "Nazwa użytkownika SMTP", "password": "Hasło SMTP / hasło do aplikacji", "sender_name": "Nazwa nadawcy", "sender_email": "Domyślny adres e-mail nadawcy", "recipients": "Domyślni odbiorcy", "use_tls": "Użyj STARTTLS"}
+      },
+      "connection_actions": {"title": "Przetestuj połączenie SMTP", "description": "Użyj opcji Testuj połączenie, aby sprawdzić serwer i dane logowania przed zapisaniem.", "menu_options": {"test_connection": "Testuj połączenie", "edit_connection": "Edytuj dane połączenia"}},
+      "confirm": {"title": "Połączenie zweryfikowane", "description": "Połączenie SMTP i dane logowania zostały zweryfikowane. Wybierz Prześlij, aby zapisać konfigurację."},
+      "reconfigure": {"title": "Skonfiguruj ponownie Document Sender", "description": "Dane połączenia są sprawdzane przed ponownym załadowaniem integracji.", "data": {"smtp_host": "Serwer SMTP", "smtp_port": "Port SMTP", "username": "Nazwa użytkownika SMTP", "password": "Hasło SMTP / hasło do aplikacji", "sender_name": "Nazwa nadawcy", "sender_email": "Domyślny adres e-mail nadawcy", "recipients": "Domyślni odbiorcy", "use_tls": "Użyj STARTTLS"}}
+    },
+    "abort": {"already_configured": "Ten adres e-mail nadawcy jest już skonfigurowany.", "wrong_account": "Nie można zmienić domyślnego adresu e-mail nadawcy podczas ponownej konfiguracji."},
+    "error": {"cannot_connect": "Nie można połączyć się z serwerem SMTP.", "invalid_auth": "Serwer SMTP odrzucił nazwę użytkownika lub hasło.", "unknown": "Podczas testowania połączenia SMTP wystąpił nieoczekiwany błąd."}
+  },
+  "options": {"step": {"init": {"title": "Opcje Document Sender", "description": "Zmień domyślne ustawienia dostawy i preferencje powiadomień. Użyj Ponownej konfiguracji dla danych SMTP.", "data": {"recipients": "Domyślni odbiorcy", "max_image_dimension": "Maksymalny wymiar obrazu (px)", "image_quality": "Jakość JPEG i WEBP", "max_attachment_size_mb": "Maksymalny rozmiar załącznika (MB)", "notify_persistent": "Twórz trwałe powiadomienia Home Assistant", "notify_mobile": "Wysyłaj powiadomienia do aplikacji mobilnej"}}}},
+  "entity": {"button": {"send": {"name": "Wyślij wiadomość"}, "test": {"name": "Wyślij wiadomość testową"}, "resend": {"name": "Wyślij ponownie ostatnią wiadomość"}}},
+  "services": {
+    "send": {
+      "name": "Wyślij wiadomość",
+      "description": "Wyślij wiadomość e-mail w formacie tekstowym lub HTML z opcjonalnymi załącznikami.",
+      "fields": {
+        "recipients": {"name": "Odbiorcy", "description": "Główni odbiorcy wiadomości e-mail."},
+        "cc": {"name": "DW", "description": "Odbiorcy kopii wiadomości."},
+        "bcc": {"name": "UDW", "description": "Odbiorcy ukrytej kopii wiadomości."},
+        "subject": {"name": "Temat", "description": "Temat wiadomości e-mail."},
+        "text": {"name": "Zwykły tekst", "description": "Treść wiadomości w formacie tekstowym."},
+        "html": {"name": "HTML", "description": "Treść wiadomości w formacie HTML."},
+        "attachments": {"name": "Załączniki", "description": "Identyfikatory zarządzanych załączników do wysłania."}
+      }
+    }
+  }
+}

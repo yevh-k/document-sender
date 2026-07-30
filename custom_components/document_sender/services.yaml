@@ -1,0 +1,87 @@
+send:
+  name: Send message
+  description: Send a plain-text or HTML email, optionally using a saved template and attachments.
+  fields:
+    entry_id:
+      selector: {text: {}}
+    template_id:
+      selector: {text: {}}
+    subject:
+      required: false
+      selector: {text: {}}
+    text:
+      required: false
+      selector: {text: {multiline: true}}
+    html:
+      required: false
+      selector: {text: {multiline: true}}
+    recipients:
+      selector: {text: {multiple: true, type: email}}
+    cc:
+      selector: {text: {multiple: true, type: email}}
+    bcc:
+      selector: {text: {multiple: true, type: email}}
+    attachments:
+      description: Managed attachment IDs returned by document_sender.add_attachment.
+      selector: {text: {multiple: true}}
+test_send:
+  name: Send test message
+  description: Send a small test email using the configured SMTP connection.
+resend_last:
+  name: Resend last message
+  description: Resend the last successful delivery from the SQLite log.
+add_attachment:
+  name: Add attachment
+  description: Copy a local file into Document Sender's managed attachment storage.
+  target: {}
+  fields:
+    path:
+      required: true
+      selector: {text: {}}
+    name:
+      required: false
+      selector: {text: {}}
+remove_attachment:
+  name: Remove attachment
+  fields:
+    attachment_id:
+      required: true
+      selector: {text: {}}
+list_attachments:
+  name: List attachments
+  description: Return managed attachment metadata as a service response.
+save_template:
+  name: Save template
+  fields:
+    name: {required: true, selector: {text: {}}}
+    subject: {required: true, selector: {text: {}}}
+    text: {selector: {text: {multiline: true}}}
+    html: {selector: {text: {multiline: true}}}
+remove_template:
+  name: Remove template
+  fields:
+    template_id: {required: true, selector: {text: {}}}
+list_templates:
+  name: List templates
+  description: Return saved templates as a service response.
+save_schedule:
+  name: Save schedule
+  description: Create or update a daily, weekly, monthly, or one-time message schedule.
+  fields:
+    name: {required: true, selector: {text: {}}}
+    schedule_type: {required: true, selector: {select: {options: [daily, weekly, monthly, once]}}}
+    time: {required: true, selector: {time: {}}}
+    weekday: {selector: {number: {min: 0, max: 6, mode: box}}}
+    day: {selector: {number: {min: 1, max: 31, mode: box}}}
+    date: {selector: {date: {}}}
+    template_id: {selector: {text: {}}}
+    subject: {selector: {text: {}}}
+    text: {selector: {text: {multiline: true}}}
+    html: {selector: {text: {multiline: true}}}
+remove_schedule:
+  name: Remove schedule
+  fields:
+    schedule_id: {required: true, selector: {text: {}}}
+list_schedules:
+  name: List schedules
+  description: Return schedules as a service response.

@@ -1,0 +1,96 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect Document Sender",
+        "description": "Enter SMTP details. They are tested before anything is saved. Gmail uses smtp.gmail.com, port 587, and a Google App Password.",
+        "data": {
+          "smtp_host": "SMTP server",
+          "smtp_port": "SMTP port",
+          "username": "SMTP username",
+          "password": "SMTP password / app password",
+          "sender_name": "Sender name",
+          "sender_email": "Default sender email",
+          "recipients": "Default recipients",
+          "use_tls": "Use STARTTLS"
+        }
+      },
+      "connection_actions": {
+        "title": "Test the SMTP connection",
+        "description": "Use Test connection to verify the server and credentials before saving.",
+        "menu_options": {
+          "test_connection": "Test connection",
+          "edit_connection": "Edit connection details"
+        }
+      },
+      "confirm": {
+        "title": "Connection verified",
+        "description": "The SMTP connection and credentials were verified. Select Submit to save this configuration."
+      },
+      "reconfigure": {
+        "title": "Reconfigure Document Sender",
+        "description": "Connection details are tested before the integration reloads.",
+        "data": {
+          "smtp_host": "SMTP server",
+          "smtp_port": "SMTP port",
+          "username": "SMTP username",
+          "password": "SMTP password / app password",
+          "sender_name": "Sender name",
+          "sender_email": "Default sender email",
+          "recipients": "Default recipients",
+          "use_tls": "Use STARTTLS"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This sender email is already configured.",
+      "wrong_account": "The default sender email cannot be changed during reconfiguration."
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the SMTP server.",
+      "invalid_auth": "The SMTP server rejected the username or password.",
+      "unknown": "An unexpected error occurred while testing the SMTP connection."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Document Sender options",
+        "description": "Change delivery defaults and notification preferences. Use Reconfigure for SMTP credentials.",
+        "data": {
+          "recipients": "Default recipients",
+          "max_image_dimension": "Maximum image dimension (px)",
+          "image_quality": "JPEG and WEBP quality",
+          "max_attachment_size_mb": "Maximum attachment size (MB)",
+          "notify_persistent": "Create Home Assistant persistent notifications",
+          "notify_mobile": "Send Mobile App notifications"
+        }
+      }
+    }
+  },
+  "entity": {
+    "button": {
+      "send": {"name": "Send message"},
+      "test": {"name": "Send test message"},
+      "resend": {"name": "Resend last message"}
+    }
+  },
+  "services": {
+    "send": {
+      "name": "Send message",
+      "description": "Send a plain-text or HTML email with optional attachments.",
+      "fields": {
+        "recipients": {"name": "Recipients", "description": "Primary email recipients."},
+        "cc": {"name": "CC", "description": "Carbon-copy recipients."},
+        "bcc": {"name": "BCC", "description": "Blind-carbon-copy recipients."},
+        "subject": {"name": "Subject", "description": "Email subject."},
+        "text": {"name": "Plain text", "description": "Plain-text message body."},
+        "html": {"name": "HTML", "description": "HTML message body."},
+        "attachments": {
+          "name": "Attachments",
+          "description": "Managed attachment IDs to include."
+        }
+      }
+    }
+  }
+}
