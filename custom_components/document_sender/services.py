@@ -42,7 +42,7 @@ SERVICE_SAVE_SCHEDULE = "save_schedule"
 SERVICE_REMOVE_SCHEDULE = "remove_schedule"
 SERVICE_LIST_SCHEDULES = "list_schedules"
 
-ENTRY_SCHEMA = {vol.Optional(ATTR_ENTRY_ID): cv.string}
+ENTRY_SCHEMA: dict[Any, Any] = {vol.Optional(ATTR_ENTRY_ID): cv.string}
 MESSAGE_SCHEMA = vol.Schema(
     {
         **ENTRY_SCHEMA,
@@ -242,7 +242,9 @@ async def _async_add_attachment(call: ServiceCall) -> ServiceResponse | None:
         call.data["path"], call.data.get("name")
     )
     await coordinator.async_refresh_state()
-    return _maybe_response(call, {"attachment": attachment})
+    return _maybe_response(
+        call, cast(ServiceResponse, {"attachment": dict(attachment)})
+    )
 
 
 async def _async_remove_attachment(call: ServiceCall) -> None:
@@ -253,11 +255,11 @@ async def _async_remove_attachment(call: ServiceCall) -> None:
 
 
 async def _async_list_attachments(call: ServiceCall) -> ServiceResponse:
-    return {
-        "attachments": _get_coordinator(
-            call.hass, call.data
-        ).attachments.list_metadata()
-    }
+    attachments = _get_coordinator(call.hass, call.data).attachments.list_metadata()
+    return cast(
+        ServiceResponse,
+        {"attachments": [dict(attachment) for attachment in attachments]},
+    )
 
 
 async def _async_save_template(call: ServiceCall) -> ServiceResponse | None:
@@ -272,7 +274,7 @@ async def _async_save_template(call: ServiceCall) -> ServiceResponse | None:
         call.data.get(ATTR_TEMPLATE_ID),
     )
     await coordinator.async_refresh_state()
-    return _maybe_response(call, {"template": template})
+    return _maybe_response(call, cast(ServiceResponse, {"template": dict(template)}))
 
 
 async def _async_remove_template(call: ServiceCall) -> None:
@@ -283,7 +285,10 @@ async def _async_remove_template(call: ServiceCall) -> None:
 
 
 async def _async_list_templates(call: ServiceCall) -> ServiceResponse:
-    return {"templates": _get_coordinator(call.hass, call.data).templates.list()}
+    templates = _get_coordinator(call.hass, call.data).templates.list()
+    return cast(
+        ServiceResponse, {"templates": [dict(template) for template in templates]}
+    )
 
 
 async def _async_save_schedule(call: ServiceCall) -> ServiceResponse | None:
@@ -304,7 +309,7 @@ async def _async_save_schedule(call: ServiceCall) -> ServiceResponse | None:
     except ValueError as err:
         raise ServiceValidationError(str(err)) from err
     await coordinator.async_refresh_state()
-    return _maybe_response(call, {"schedule": saved})
+    return _maybe_response(call, cast(ServiceResponse, {"schedule": dict(saved)}))
 
 
 async def _async_remove_schedule(call: ServiceCall) -> None:
@@ -315,7 +320,10 @@ async def _async_remove_schedule(call: ServiceCall) -> None:
 
 
 async def _async_list_schedules(call: ServiceCall) -> ServiceResponse:
-    return {"schedules": _get_coordinator(call.hass, call.data).scheduler.list()}
+    schedules = _get_coordinator(call.hass, call.data).scheduler.list()
+    return cast(
+        ServiceResponse, {"schedules": [dict(schedule) for schedule in schedules]}
+    )
 
 
 def _get_coordinator(
