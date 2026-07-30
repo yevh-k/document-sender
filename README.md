@@ -12,6 +12,16 @@ Document Sender is a Home Assistant custom integration for reliable SMTP email d
 - Persistent Home Assistant and Mobile App delivery notifications
 - SQLite audit log and durable attachment/template/schedule storage
 - English, Polish, and Ukrainian UI translations
+- Native **Document Sender** sidebar panel for message composition, managed
+  uploads, camera snapshots, saved drafts, and masked delivery history
+
+## Management panel
+
+After an account loads, select **Document Sender** in the Home Assistant
+sidebar. The panel is a native Lit module, not an iframe. It communicates over
+authenticated WebSocket commands and never receives SMTP credentials. Browser
+uploads are copied into the private integration attachment directory, so the
+browser cannot supply arbitrary filesystem paths.
 
 ## Installation
 

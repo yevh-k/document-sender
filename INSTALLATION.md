@@ -29,6 +29,14 @@ The final path should be:
 <config>/custom_components/document_sender/manifest.json
 ```
 
+## Management panel
+
+Once the first Document Sender account has loaded, **Document Sender** appears
+in the sidebar. The panel is restricted to Home Assistant administrators and
+supports composing messages, saved editor defaults, private attachment uploads,
+camera snapshots, and masked send history. SMTP credentials are never exposed
+to the browser.
+
 ## Gmail App Password
 
 1. Enable [2-Step Verification](https://myaccount.google.com/signinoptions/two-step-verification) for the Google account.

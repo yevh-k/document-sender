@@ -34,8 +34,13 @@ STORAGE_VERSION: Final = 1
 STORAGE_KEY_ATTACHMENTS: Final = f"{DOMAIN}.attachments"
 STORAGE_KEY_TEMPLATES: Final = f"{DOMAIN}.templates"
 STORAGE_KEY_SCHEDULES: Final = f"{DOMAIN}.schedules"
+STORAGE_KEY_PANEL_DRAFTS: Final = f"{DOMAIN}.panel_drafts"
 ATTACHMENTS_DIRECTORY: Final = DOMAIN
 DATABASE_FILE: Final = f"{DOMAIN}.sqlite"
+PANEL_URL_PATH: Final = DOMAIN.replace("_", "-")
+PANEL_COMPONENT: Final = "document-sender-panel"
+PANEL_STATIC_URL: Final = f"/{DOMAIN}/document-sender-panel.js"
+PANEL_MAX_UPLOAD_BYTES: Final = 25 * 1024 * 1024
 
 ATTR_ENTRY_ID: Final = "entry_id"
 ATTR_TEMPLATE_ID: Final = "template_id"
