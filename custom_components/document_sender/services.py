@@ -148,6 +148,14 @@ async def async_register_services(hass: HomeAssistant) -> None:
                 vol.Required("subject"): cv.string,
                 vol.Optional("text", default=""): cv.string,
                 vol.Optional("html", default=""): cv.string,
+                vol.Optional("recipients", default=[]): vol.All(
+                    cv.ensure_list, [vol.Email()]
+                ),
+                vol.Optional("cc", default=[]): vol.All(cv.ensure_list, [vol.Email()]),
+                vol.Optional("bcc", default=[]): vol.All(cv.ensure_list, [vol.Email()]),
+                vol.Optional("attachment_ids", default=[]): vol.All(
+                    cv.ensure_list, [cv.string]
+                ),
             }
         ),
         supports_response=SupportsResponse.OPTIONAL,
@@ -266,12 +274,23 @@ async def _async_save_template(call: ServiceCall) -> ServiceResponse | None:
     coordinator = _get_coordinator(call.hass, call.data)
     if not call.data["text"] and not call.data["html"]:
         raise ServiceValidationError("A plain-text or HTML template body is required")
+    missing = [
+        identifier
+        for identifier in call.data["attachment_ids"]
+        if coordinator.attachments.get(identifier) is None
+    ]
+    if missing:
+        raise ServiceValidationError(f"Unknown attachment IDs: {', '.join(missing)}")
     template = await coordinator.templates.async_save(
         call.data["name"],
         call.data["subject"],
         call.data["text"],
         call.data["html"],
         call.data.get(ATTR_TEMPLATE_ID),
+        recipients=call.data["recipients"],
+        cc=call.data["cc"],
+        bcc=call.data["bcc"],
+        attachment_ids=call.data["attachment_ids"],
     )
     await coordinator.async_refresh_state()
     return _maybe_response(call, cast(ServiceResponse, {"template": dict(template)}))
@@ -279,6 +298,13 @@ async def _async_save_template(call: ServiceCall) -> ServiceResponse | None:
 
 async def _async_remove_template(call: ServiceCall) -> None:
     coordinator = _get_coordinator(call.hass, call.data)
+    if any(
+        schedule.get(ATTR_TEMPLATE_ID) == call.data[ATTR_TEMPLATE_ID]
+        for schedule in coordinator.scheduler.list()
+    ):
+        raise ServiceValidationError(
+            "Delete schedules that use this template before removing it"
+        )
     if not await coordinator.templates.async_remove(call.data[ATTR_TEMPLATE_ID]):
         raise ServiceValidationError("Unknown template ID")
     await coordinator.async_refresh_state()

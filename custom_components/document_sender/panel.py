@@ -31,6 +31,7 @@ from .const import (
     STORAGE_VERSION,
 )
 from .coordinator import DocumentSenderCoordinator
+from .models import ScheduleData
 
 _LOGGER = logging.getLogger(__name__)
 _PANEL_REGISTERED = f"{DOMAIN}_panel_registered"
@@ -238,6 +239,241 @@ async def ws_template_save(
     data[msg["entry_id"]] = template
     await store.async_save(data)
     connection.send_result(msg["id"], template)
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/templates/list", vol.Required("entry_id"): str}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_templates_list(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """List reusable message templates for one SMTP account."""
+    coordinator = _coordinator(hass, msg["entry_id"])
+    connection.send_result(
+        msg["id"], [dict(template) for template in coordinator.templates.list()]
+    )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/templates/save",
+        vol.Required("entry_id"): str,
+        vol.Required("template"): {
+            vol.Optional("id"): str,
+            vol.Required("name"): str,
+            vol.Required("recipients"): [vol.Email()],
+            vol.Optional("cc", default=[]): [vol.Email()],
+            vol.Optional("bcc", default=[]): [vol.Email()],
+            vol.Required("subject"): str,
+            vol.Optional("text", default=""): str,
+            vol.Optional("html", default=""): str,
+            vol.Optional("attachment_ids", default=[]): [str],
+        },
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_templates_save(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Create or update a reusable message template."""
+    coordinator = _coordinator(hass, msg["entry_id"])
+    raw = cast(Mapping[str, Any], msg["template"])
+    if not raw["name"].strip() or not raw["subject"].strip():
+        connection.send_error(
+            msg["id"], "invalid_template", "Template name and subject are required"
+        )
+        return
+    if not raw["text"].strip() and not raw["html"].strip():
+        connection.send_error(
+            msg["id"],
+            "invalid_template",
+            "A plain-text or HTML message body is required",
+        )
+        return
+    if not raw["recipients"] and not raw["cc"] and not raw["bcc"]:
+        connection.send_error(
+            msg["id"], "invalid_template", "At least one recipient is required"
+        )
+        return
+    attachment_ids = list(raw["attachment_ids"])
+    missing = [
+        identifier
+        for identifier in attachment_ids
+        if coordinator.attachments.get(identifier) is None
+    ]
+    if missing:
+        connection.send_error(
+            msg["id"],
+            "invalid_template",
+            f"Unknown attachment IDs: {', '.join(missing)}",
+        )
+        return
+    template = await coordinator.templates.async_save(
+        raw["name"].strip(),
+        raw["subject"],
+        raw["text"],
+        raw["html"],
+        raw.get("id"),
+        recipients=list(raw["recipients"]),
+        cc=list(raw["cc"]),
+        bcc=list(raw["bcc"]),
+        attachment_ids=attachment_ids,
+    )
+    await coordinator.async_refresh_state()
+    connection.send_result(msg["id"], dict(template))
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/templates/delete",
+        vol.Required("entry_id"): str,
+        vol.Required("template_id"): str,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_templates_delete(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Delete a template unless a monthly automation still uses it."""
+    coordinator = _coordinator(hass, msg["entry_id"])
+    if any(
+        schedule.get("template_id") == msg["template_id"]
+        for schedule in coordinator.scheduler.list()
+    ):
+        connection.send_error(
+            msg["id"],
+            "template_in_use",
+            "Delete automations that use this template first",
+        )
+        return
+    if not await coordinator.templates.async_remove(msg["template_id"]):
+        connection.send_error(msg["id"], "not_found", "Unknown template")
+        return
+    await coordinator.async_refresh_state()
+    connection.send_result(msg["id"], {"success": True})
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/automations/list", vol.Required("entry_id"): str}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_automations_list(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """List monthly Document Sender automations."""
+    coordinator = _coordinator(hass, msg["entry_id"])
+    result: list[dict[str, object]] = []
+    for schedule in coordinator.scheduler.list():
+        if schedule.get("schedule_type") != "monthly":
+            continue
+        item: dict[str, object] = dict(schedule)
+        item["next_run"] = coordinator.scheduler.next_run(schedule)
+        result.append(item)
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/automations/save",
+        vol.Required("entry_id"): str,
+        vol.Required("automation"): {
+            vol.Optional("id"): str,
+            vol.Required("name"): str,
+            vol.Required("template_id"): str,
+            vol.Required("day"): vol.All(vol.Coerce(int), vol.Range(min=1, max=31)),
+            vol.Required("time"): vol.Match(
+                r"^(?:[01]\d|2[0-3]):[0-5]\d(?:\:[0-5]\d)?$"
+            ),
+            vol.Optional("enabled", default=True): bool,
+        },
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_automations_save(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Create or update a monthly automation."""
+    coordinator = _coordinator(hass, msg["entry_id"])
+    raw = cast(Mapping[str, Any], msg["automation"])
+    if not raw["name"].strip():
+        connection.send_error(
+            msg["id"], "invalid_automation", "Automation name is required"
+        )
+        return
+    if coordinator.templates.get(raw["template_id"]) is None:
+        connection.send_error(msg["id"], "not_found", "Unknown template")
+        return
+    schedule: ScheduleData = {
+        "name": raw["name"].strip(),
+        "schedule_type": "monthly",
+        "template_id": raw["template_id"],
+        "day": raw["day"],
+        "time": raw["time"],
+        "enabled": raw["enabled"],
+    }
+    if raw.get("id"):
+        schedule["id"] = raw["id"]
+    try:
+        saved = await coordinator.scheduler.async_save(schedule)
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_automation", str(err))
+        return
+    await coordinator.async_refresh_state()
+    result: dict[str, object] = dict(saved)
+    result["next_run"] = coordinator.scheduler.next_run(saved)
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/automations/delete",
+        vol.Required("entry_id"): str,
+        vol.Required("automation_id"): str,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_automations_delete(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Delete a monthly automation."""
+    coordinator = _coordinator(hass, msg["entry_id"])
+    if not await coordinator.scheduler.async_remove(msg["automation_id"]):
+        connection.send_error(msg["id"], "not_found", "Unknown automation")
+        return
+    await coordinator.async_refresh_state()
+    connection.send_result(msg["id"], {"success": True})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/automations/run",
+        vol.Required("entry_id"): str,
+        vol.Required("automation_id"): str,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_automations_run(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Run a monthly automation immediately."""
+    coordinator = _coordinator(hass, msg["entry_id"])
+    try:
+        schedule = await coordinator.scheduler.async_run_now(msg["automation_id"])
+    except ValueError as err:
+        connection.send_error(msg["id"], "not_found", str(err))
+        return
+    await coordinator.async_refresh_state()
+    result: dict[str, object] = dict(schedule)
+    result["next_run"] = coordinator.scheduler.next_run(schedule)
+    connection.send_result(msg["id"], result)
 
 
 @websocket_api.websocket_command(
@@ -467,6 +703,13 @@ _COMMANDS = (
     ws_config,
     ws_template_get,
     ws_template_save,
+    ws_templates_list,
+    ws_templates_save,
+    ws_templates_delete,
+    ws_automations_list,
+    ws_automations_save,
+    ws_automations_delete,
+    ws_automations_run,
     ws_attachments_list,
     ws_attachments_upload,
     ws_attachments_delete,

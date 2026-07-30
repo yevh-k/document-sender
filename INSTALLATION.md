@@ -34,8 +34,21 @@ The final path should be:
 Once the first Document Sender account has loaded, **Document Sender** appears
 in the sidebar. The panel is restricted to Home Assistant administrators and
 supports composing messages, saved editor defaults, private attachment uploads,
-camera snapshots, and masked send history. SMTP credentials are never exposed
-to the browser.
+camera snapshots, reusable templates, monthly automations, and masked send
+history. SMTP credentials are never exposed to the browser.
+
+To create monthly delivery:
+
+1. Upload the files in **Document Sender → Attachments**.
+2. Open **Templates**, enter the recipients, subject, body, and select the
+   managed files. Monthly variables such as
+   `{{ previous_month_name_genitive }}` are rendered at send time.
+3. Open **Automations**, select the template, day of month, and local send time.
+4. Leave the automation enabled. Home Assistant restores it after every
+   restart. Use **Run now** for an immediate test.
+
+The selected managed attachment IDs remain in the template until you edit it.
+Ordinary monthly sending never replaces or removes those files.
 
 ## Gmail App Password
 

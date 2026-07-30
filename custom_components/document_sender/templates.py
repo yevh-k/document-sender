@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import cast
 from uuid import uuid4
 
 from homeassistant.core import HomeAssistant
@@ -24,7 +25,18 @@ class TemplateManager:
 
     async def async_load(self) -> None:
         """Load template data."""
-        self._data = await self._store.async_load() or {}
+        loaded = await self._store.async_load() or {}
+        self._data = {}
+        changed = False
+        for identifier, stored in loaded.items():
+            template = dict(stored)
+            for key in ("recipients", "cc", "bcc", "attachment_ids"):
+                if not isinstance(template.get(key), list):
+                    template[key] = []
+                    changed = True
+            self._data[identifier] = cast(TemplateData, template)
+        if changed:
+            await self._store.async_save(self._data)
 
     async def async_save(
         self,
@@ -33,6 +45,11 @@ class TemplateManager:
         text: str,
         html: str,
         template_id: str | None = None,
+        *,
+        recipients: list[str] | None = None,
+        cc: list[str] | None = None,
+        bcc: list[str] | None = None,
+        attachment_ids: list[str] | None = None,
     ) -> TemplateData:
         """Create or update a reusable template."""
         now = datetime.now(UTC).isoformat()
@@ -44,6 +61,10 @@ class TemplateManager:
             "subject": subject,
             "text": text,
             "html": html,
+            "recipients": list(recipients or []),
+            "cc": list(cc or []),
+            "bcc": list(bcc or []),
+            "attachment_ids": list(attachment_ids or []),
             "created_at": existing["created_at"] if existing else now,
             "updated_at": now,
         }

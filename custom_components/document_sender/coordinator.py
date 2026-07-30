@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
 from typing import Any, cast
 
 from homeassistant.components import persistent_notification
@@ -12,6 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.template import Template
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.util import dt as dt_util
 
 from .attachments import AttachmentManager
 from .const import (
@@ -34,6 +34,7 @@ from .mailer import MailConfig, Mailer
 from .models import MessageRequest, ScheduleData, SendResult
 from .scheduler import SchedulerManager
 from .templates import TemplateManager
+from .variables import monthly_variables
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -168,16 +169,21 @@ class DocumentSenderCoordinator(DataUpdateCoordinator[dict[str, object]]):
 
     async def _async_send_scheduled(self, schedule: ScheduleData) -> None:
         """Create and send a scheduled message."""
-        await self.async_send(
-            subject=schedule.get("subject"),
-            text=schedule.get("text"),
-            html=schedule.get("html"),
-            recipients=schedule.get("recipients"),
-            attachment_ids=schedule.get("attachment_ids"),
+        uses_template = bool(schedule.get("template_id"))
+        result = await self.async_send(
+            subject=None if uses_template else schedule.get("subject"),
+            text=None if uses_template else schedule.get("text"),
+            html=None if uses_template else schedule.get("html"),
+            recipients=None if uses_template else schedule.get("recipients"),
+            cc=None if uses_template else schedule.get("cc"),
+            bcc=None if uses_template else schedule.get("bcc"),
+            attachment_ids=None if uses_template else schedule.get("attachment_ids"),
             template_id=schedule.get("template_id"),
             source="schedule",
             schedule_id=schedule["id"],
         )
+        if not result.success:
+            raise HomeAssistantError(result.error or "Scheduled delivery failed")
 
     def _build_request(
         self,
@@ -197,8 +203,23 @@ class DocumentSenderCoordinator(DataUpdateCoordinator[dict[str, object]]):
         template = self.templates.get(template_id) if template_id else None
         if template_id and template is None:
             raise HomeAssistantError(f"Unknown template ID: {template_id}")
-        final_recipients = recipients or list(self.config[CONF_RECIPIENTS])
-        if not final_recipients and not cc and not bcc:
+        if recipients is not None:
+            final_recipients = recipients
+        elif template is not None:
+            final_recipients = list(template["recipients"])
+        else:
+            final_recipients = list(self.config[CONF_RECIPIENTS])
+        final_cc = (
+            cc
+            if cc is not None
+            else (list(template["cc"]) if template is not None else [])
+        )
+        final_bcc = (
+            bcc
+            if bcc is not None
+            else (list(template["bcc"]) if template is not None else [])
+        )
+        if not final_recipients and not final_cc and not final_bcc:
             raise HomeAssistantError(
                 "At least one To, CC, or BCC recipient is required"
             )
@@ -217,7 +238,11 @@ class DocumentSenderCoordinator(DataUpdateCoordinator[dict[str, object]]):
             raise HomeAssistantError("A message subject is required")
         if not final_text and not final_html:
             raise HomeAssistantError("A plain-text or HTML message body is required")
-        final_attachment_ids = attachment_ids or []
+        final_attachment_ids = (
+            attachment_ids
+            if attachment_ids is not None
+            else (list(template["attachment_ids"]) if template is not None else [])
+        )
         missing_attachment_ids = [
             attachment_id
             for attachment_id in final_attachment_ids
@@ -227,8 +252,10 @@ class DocumentSenderCoordinator(DataUpdateCoordinator[dict[str, object]]):
             raise HomeAssistantError(
                 f"Unknown attachment IDs: {', '.join(missing_attachment_ids)}"
             )
-        variables = {
-            "now": datetime.now(UTC),
+        local_now = dt_util.now()
+        variables: dict[str, object] = {
+            **monthly_variables(self.hass.config.language, local_now),
+            "now": local_now,
             "recipients": final_recipients,
             "source": source,
         }
@@ -239,8 +266,8 @@ class DocumentSenderCoordinator(DataUpdateCoordinator[dict[str, object]]):
             html=self._render(final_html, variables),
             attachment_ids=final_attachment_ids,
             source=source,
-            cc=cc or [],
-            bcc=bcc or [],
+            cc=final_cc,
+            bcc=final_bcc,
             schedule_id=schedule_id,
             template_id=template_id,
         )

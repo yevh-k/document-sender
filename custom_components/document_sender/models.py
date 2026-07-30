@@ -26,6 +26,10 @@ class TemplateData(TypedDict):
     subject: str
     text: str
     html: str
+    recipients: list[str]
+    cc: list[str]
+    bcc: list[str]
+    attachment_ids: list[str]
     created_at: str
     updated_at: str
 
@@ -45,9 +49,14 @@ class ScheduleData(TypedDict, total=False):
     text: str
     html: str
     recipients: list[str]
+    cc: list[str]
+    bcc: list[str]
     attachment_ids: list[str]
     enabled: bool
     last_run: str
+    last_status: str
+    last_error: str
+    last_scheduled_occurrence: str
     created_at: str
     updated_at: str
 

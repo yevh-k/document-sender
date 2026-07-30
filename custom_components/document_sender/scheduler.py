@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import calendar
 import logging
+import re
 from collections.abc import Awaitable, Callable
 from datetime import date, datetime, time, timedelta
 from uuid import uuid4
@@ -25,6 +26,7 @@ from .const import (
 from .models import ScheduleData
 
 _LOGGER = logging.getLogger(__name__)
+_EMAIL_PATTERN = re.compile(r"(?P<local>[\w.+-]+)@(?P<domain>[\w.-]+)")
 ScheduleCallback = Callable[[ScheduleData], Awaitable[None]]
 
 
@@ -66,11 +68,19 @@ class SchedulerManager:
         schedule["id"] = identifier
         schedule["created_at"] = existing.get("created_at", now)
         schedule["updated_at"] = now
-        if "last_run" not in schedule and "last_run" in existing:
-            schedule["last_run"] = existing["last_run"]
+        for key in (
+            "last_run",
+            "last_status",
+            "last_error",
+            "last_scheduled_occurrence",
+        ):
+            if key not in schedule and key in existing:
+                schedule[key] = existing[key]
         schedule.setdefault("enabled", True)
         schedule.setdefault("attachment_ids", [])
         schedule.setdefault("recipients", [])
+        schedule.setdefault("cc", [])
+        schedule.setdefault("bcc", [])
         self._data[identifier] = schedule
         await self._store.async_save(self._data)
         return schedule
@@ -86,25 +96,71 @@ class SchedulerManager:
         """Return schedules."""
         return list(self._data.values())
 
+    def get(self, schedule_id: str) -> ScheduleData | None:
+        """Return one schedule."""
+        return self._data.get(schedule_id)
+
+    def next_run(
+        self, schedule: ScheduleData, now: datetime | None = None
+    ) -> str | None:
+        """Return the next local run timestamp for a schedule."""
+        if not schedule.get("enabled", True):
+            return None
+        local_now = now or dt_util.now()
+        candidate = _next_run(schedule, local_now)
+        return candidate.isoformat() if candidate is not None else None
+
+    async def async_run_now(self, schedule_id: str) -> ScheduleData:
+        """Run a schedule immediately without consuming its monthly occurrence."""
+        schedule = self._data.get(schedule_id)
+        if schedule is None:
+            raise ValueError("Unknown schedule ID")
+        await self._async_execute(schedule, dt_util.now())
+        return schedule
+
     async def _async_tick(self, now_utc: datetime) -> None:
         """Dispatch due schedules, with one delivery per schedule occurrence."""
         now = dt_util.as_local(now_utc)
-        changed = False
         for schedule in list(self._data.values()):
             if not schedule.get("enabled", True) or not _is_due(schedule, now):
                 continue
-            try:
-                await self._callback(schedule)
-            except Exception:
-                _LOGGER.exception(
-                    "Scheduled Document Sender job failed: %s", schedule["id"]
-                )
+            # Persist the occurrence before delivery. If Home Assistant stops during
+            # SMTP delivery, the restart cannot send the same monthly occurrence
+            # twice.
+            schedule["last_scheduled_occurrence"] = now.date().isoformat()
             schedule["last_run"] = now.isoformat()
             if schedule["schedule_type"] == SCHEDULE_ONCE:
                 schedule["enabled"] = False
-            changed = True
-        if changed:
             await self._store.async_save(self._data)
+            await self._async_execute(schedule, now, update_last_run=False)
+
+    async def _async_execute(
+        self,
+        schedule: ScheduleData,
+        now: datetime,
+        *,
+        update_last_run: bool = True,
+    ) -> None:
+        """Execute and persist the delivery outcome for one schedule."""
+        if update_last_run:
+            schedule["last_run"] = now.isoformat()
+        try:
+            await self._callback(schedule)
+        except Exception as err:
+            schedule["last_status"] = "failed"
+            schedule["last_error"] = _safe_error(err)
+            _LOGGER.error(
+                "Scheduled Document Sender job failed",
+                extra={
+                    "schedule_id": schedule["id"],
+                    "error_type": type(err).__name__,
+                },
+            )
+        else:
+            schedule["last_status"] = "success"
+            schedule["last_error"] = ""
+        schedule["updated_at"] = dt_util.utcnow().isoformat()
+        await self._store.async_save(self._data)
 
     @staticmethod
     def _validate(schedule: ScheduleData) -> None:
@@ -139,10 +195,12 @@ def _is_due(schedule: ScheduleData, now: datetime) -> bool:
         or now.time() < _parse_time(schedule["time"])
     ):
         return False
+    occurrence = schedule.get("last_scheduled_occurrence")
+    if occurrence is not None:
+        return occurrence != run_date.isoformat()
+    # Migration fallback for schedules saved before occurrence tracking existed.
     last_run = schedule.get("last_run")
-    if last_run is None:
-        return True
-    return datetime.fromisoformat(last_run).date() != run_date
+    return last_run is None or datetime.fromisoformat(last_run).date() != run_date
 
 
 def _due_date(schedule: ScheduleData, today: date) -> date | None:
@@ -166,3 +224,47 @@ def _parse_time(value: str) -> time:
         return time.fromisoformat(value)
     except ValueError as err:
         raise ValueError("Schedule time must use HH:MM or HH:MM:SS") from err
+
+
+def _next_run(schedule: ScheduleData, now: datetime) -> datetime | None:
+    """Calculate the next execution in the timezone carried by ``now``."""
+    run_time = _parse_time(schedule["time"])
+    schedule_type = schedule["schedule_type"]
+    if schedule_type == SCHEDULE_DAILY:
+        candidate = datetime.combine(now.date(), run_time, now.tzinfo)
+        return candidate if candidate > now else candidate + timedelta(days=1)
+    if schedule_type == SCHEDULE_WEEKLY:
+        days = (schedule["weekday"] - now.weekday()) % 7
+        candidate = datetime.combine(
+            now.date() + timedelta(days=days), run_time, now.tzinfo
+        )
+        return candidate if candidate > now else candidate + timedelta(days=7)
+    if schedule_type == SCHEDULE_MONTHLY:
+        year = now.year
+        month = now.month
+        day = min(schedule["day"], calendar.monthrange(year, month)[1])
+        candidate = datetime.combine(date(year, month, day), run_time, now.tzinfo)
+        if candidate > now:
+            return candidate
+        if month == 12:
+            year += 1
+            month = 1
+        else:
+            month += 1
+        day = min(schedule["day"], calendar.monthrange(year, month)[1])
+        return datetime.combine(date(year, month, day), run_time, now.tzinfo)
+    if schedule_type == SCHEDULE_ONCE:
+        candidate = datetime.combine(
+            date.fromisoformat(schedule["date"]), run_time, now.tzinfo
+        )
+        return candidate if candidate > now else None
+    return None
+
+
+def _safe_error(err: Exception) -> str:
+    """Create a bounded error summary without exposing full email addresses."""
+
+    def mask(match: re.Match[str]) -> str:
+        return f"{match.group('local')[:1]}***@{match.group('domain')}"
+
+    return _EMAIL_PATTERN.sub(mask, str(err))[:200]
