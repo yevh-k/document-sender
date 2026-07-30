@@ -1,0 +1,9 @@
+{
+  "name": "document-sender-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-frontend.mjs",
+    "check": "node --check custom_components/document_sender/frontend_src/document-sender-panel.js && node --check custom_components/document_sender/frontend/document-sender-panel.js"
+  }
+}
