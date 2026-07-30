@@ -50,28 +50,40 @@ def _connection_schema(defaults: Mapping[str, Any] | None = None) -> vol.Schema:
         {
             vol.Required(
                 CONF_SMTP_HOST, default=values.get(CONF_SMTP_HOST, "smtp.gmail.com")
-            ): selector.TextSelector(selector.TextSelectorConfig(type="text")),
+            ): selector.TextSelector(
+                selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
+            ),
             vol.Required(
                 CONF_SMTP_PORT,
                 default=values.get(CONF_SMTP_PORT, DEFAULT_SMTP_PORT),
             ): vol.All(vol.Coerce(int), vol.Range(min=1, max=65535)),
             vol.Required(
                 CONF_USERNAME, default=values.get(CONF_USERNAME, "")
-            ): selector.TextSelector(selector.TextSelectorConfig(type="email")),
+            ): selector.TextSelector(
+                selector.TextSelectorConfig(type=selector.TextSelectorType.EMAIL)
+            ),
             vol.Required(
                 CONF_PASSWORD, default=values.get(CONF_PASSWORD, "")
-            ): selector.TextSelector(selector.TextSelectorConfig(type="password")),
+            ): selector.TextSelector(
+                selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+            ),
             vol.Required(
                 CONF_SENDER_NAME, default=values.get(CONF_SENDER_NAME, "")
-            ): selector.TextSelector(selector.TextSelectorConfig(type="text")),
+            ): selector.TextSelector(
+                selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
+            ),
             vol.Required(
                 CONF_SENDER_EMAIL, default=values.get(CONF_SENDER_EMAIL, "")
-            ): selector.TextSelector(selector.TextSelectorConfig(type="email")),
+            ): selector.TextSelector(
+                selector.TextSelectorConfig(type=selector.TextSelectorType.EMAIL)
+            ),
             vol.Required(
                 CONF_RECIPIENTS,
                 default=values.get(CONF_RECIPIENTS, DEFAULT_RECIPIENTS),
             ): selector.TextSelector(
-                selector.TextSelectorConfig(type="email", multiple=True)
+                selector.TextSelectorConfig(
+                    type=selector.TextSelectorType.EMAIL, multiple=True
+                )
             ),
             vol.Required(
                 CONF_USE_TLS, default=values.get(CONF_USE_TLS, True)
@@ -89,7 +101,9 @@ def _options_schema(defaults: Mapping[str, Any] | None = None) -> vol.Schema:
                 CONF_RECIPIENTS,
                 default=values.get(CONF_RECIPIENTS, DEFAULT_RECIPIENTS),
             ): selector.TextSelector(
-                selector.TextSelectorConfig(type="email", multiple=True)
+                selector.TextSelectorConfig(
+                    type=selector.TextSelectorType.EMAIL, multiple=True
+                )
             ),
             vol.Required(
                 CONF_MAX_IMAGE_DIMENSION,
