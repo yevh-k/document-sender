@@ -131,25 +131,39 @@ class DocumentSenderConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Collect connection details without persisting them yet."""
         if user_input is not None:
-            self._connection_data = user_input
+            self._connection_data = dict(user_input)
             return await self.async_step_connection_actions()
         return self.async_show_form(step_id="user", data_schema=_connection_schema())
 
-    async def async_step_connection_actions(self) -> ConfigFlowResult:
+    async def async_step_connection_actions(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Show the explicit test-connection action before entry creation."""
+        del user_input
         return self.async_show_menu(
             step_id="connection_actions",
             menu_options=["test_connection", "edit_connection"],
         )
 
-    async def async_step_edit_connection(self) -> ConfigFlowResult:
+    async def async_step_edit_connection(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Return to the SMTP form while retaining entered values."""
+        del user_input
         return self.async_show_form(
             step_id="user", data_schema=_connection_schema(self._connection_data)
         )
 
-    async def async_step_test_connection(self) -> ConfigFlowResult:
-        """Run the user-invoked SMTP connection test."""
+    async def async_step_test_connection(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Test the pending SMTP details selected from the action menu.
+
+        Home Assistant passes ``user_input`` to every config-flow step, including
+        menu actions. The value is intentionally ignored: the SMTP form state is
+        retained in ``_connection_data`` until its connection test succeeds.
+        """
+        del user_input
         if self._connection_data is None:
             return await self.async_step_user()
         error = await _async_connection_error(self._connection_data)
@@ -164,7 +178,11 @@ class DocumentSenderConfigFlow(ConfigFlow, domain=DOMAIN):
             self._connection_data[CONF_SENDER_EMAIL].casefold()
         )
         self._abort_if_unique_id_configured()
-        return self.async_show_form(step_id="confirm", data_schema=vol.Schema({}))
+        title = (
+            self._connection_data[CONF_SENDER_NAME]
+            or self._connection_data[CONF_SENDER_EMAIL]
+        )
+        return self.async_create_entry(title=title, data=self._connection_data)
 
     async def async_step_confirm(
         self, user_input: dict[str, Any] | None = None
@@ -240,8 +258,11 @@ async def _async_connection_error(data: Mapping[str, Any]) -> str | None:
         return "invalid_auth"
     except (aiosmtplib.SMTPException, OSError, TimeoutError):
         return "cannot_connect"
-    except Exception:
-        _LOGGER.exception("Unexpected SMTP connection validation error")
+    except Exception as err:
+        _LOGGER.warning(
+            "Unexpected SMTP connection validation error",
+            extra={"error_type": type(err).__name__},
+        )
         return "unknown"
     finally:
         if client.is_connected:
