@@ -39,6 +39,7 @@ ATTACHMENTS_DIRECTORY: Final = DOMAIN
 DATABASE_FILE: Final = f"{DOMAIN}.sqlite"
 PANEL_URL_PATH: Final = DOMAIN.replace("_", "-")
 PANEL_COMPONENT: Final = "document-sender-panel"
+PANEL_STATIC_ROOT: Final = f"/{DOMAIN}"
 PANEL_STATIC_URL: Final = f"/{DOMAIN}/document-sender-panel.js"
 PANEL_MAX_UPLOAD_BYTES: Final = 25 * 1024 * 1024
 

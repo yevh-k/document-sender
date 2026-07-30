@@ -24,6 +24,7 @@ from .const import (
     DOMAIN,
     PANEL_COMPONENT,
     PANEL_MAX_UPLOAD_BYTES,
+    PANEL_STATIC_ROOT,
     PANEL_STATIC_URL,
     PANEL_URL_PATH,
     STORAGE_KEY_PANEL_DRAFTS,
@@ -43,10 +44,8 @@ async def async_setup_panel(hass: HomeAssistant) -> None:
         await hass.http.async_register_static_paths(
             [
                 StaticPathConfig(
-                    PANEL_STATIC_URL,
-                    str(
-                        Path(__file__).parent / "frontend" / "document-sender-panel.js"
-                    ),
+                    PANEL_STATIC_ROOT,
+                    str(Path(__file__).parent / "frontend"),
                     False,
                 )
             ]
