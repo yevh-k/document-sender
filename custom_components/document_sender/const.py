@@ -40,7 +40,7 @@ DATABASE_FILE: Final = f"{DOMAIN}.sqlite"
 PANEL_URL_PATH: Final = DOMAIN.replace("_", "-")
 PANEL_COMPONENT: Final = "document-sender-panel"
 PANEL_STATIC_ROOT: Final = f"/{DOMAIN}"
-PANEL_STATIC_URL: Final = f"/{DOMAIN}/document-sender-panel.js"
+PANEL_STATIC_URL: Final = f"/{DOMAIN}/document-sender-panel.js?v=1.2.2"
 PANEL_MAX_UPLOAD_BYTES: Final = 25 * 1024 * 1024
 
 ATTR_ENTRY_ID: Final = "entry_id"
